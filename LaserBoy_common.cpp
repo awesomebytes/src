@@ -1,0 +1,404 @@
+//############################################################################
+//
+// LaserBoy !!!
+//
+// by James Lehman
+// Extra Stimulus Inc.
+// james@akrobiz.com
+//
+// began: October 2003
+//
+// Copyright 2003, 04, 05, 06, 07, 08, 09, 10, 11, 12, 2013 James Lehman.
+// This source is distributed under the terms of the GNU General Public License.
+//
+// LaserBoy_common.cpp is part of LaserBoy.
+//
+// LaserBoy is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// LaserBoy is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with LaserBoy. If not, see <http://www.gnu.org/licenses/>.
+//
+//############################################################################
+#include "LaserBoy_common.hpp"
+
+//############################################################################
+const double pi                = (4 * atan(1.0)) ;
+const double two_pi            = (pi * 2.0)      ;
+const double quarter_pi        = (pi / 4.0)      ;
+const double half_pi           = (pi / 2.0)      ;
+const double three_quarters_pi = (3 * quarter_pi);
+const double one_degree        = (pi / 180.0)    ;
+const double one_radian        = (180.0 / pi)    ;
+
+//############################################################################
+const unsigned char byte_primes[55] =
+{
+    1, 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41,
+    43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101,
+    103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157,
+    163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223,
+    227, 229, 233, 239, 241, 251
+};
+
+//############################################################################
+const short short_bit_mask[16] =
+{
+    0xffff, // 1111 1111 1111 1111
+    0xfffe, // 1111 1111 1111 1110
+    0xfffc, // 1111 1111 1111 1100
+    0xfff8, // 1111 1111 1111 1000
+
+    0xfff0, // 1111 1111 1111 0000
+    0xffe0, // 1111 1111 1110 0000
+    0xffc0, // 1111 1111 1100 0000
+    0xff80, // 1111 1111 1000 0000
+
+    0xff00, // 1111 1111 0000 0000
+    0xfe00, // 1111 1110 0000 0000
+    0xfc00, // 1111 1100 0000 0000
+    0xf800, // 1111 1000 0000 0000
+
+    0xf000, // 1111 0000 0000 0000
+    0xe000, // 1110 0000 0000 0000
+    0xc000, // 1100 0000 0000 0000
+    0x8000  // 1000 0000 0000 0000
+};
+
+//############################################################################
+int greatest_common_devisor(int x, int y)
+{
+    x = abs(x);
+    y = abs(y);
+    int z;
+    while(y != 0)
+    {
+        z = x % y;
+        x = y;
+        y = z;
+    }
+    return x;
+}
+
+//############################################################################
+int lowest_common_denominator(int x, int y)
+{
+  int z,
+      min = x > y ? y : x;
+  for(z = 2; z < min; z++)
+    if(((x % z) == 0) && ((y % z) == 0))
+       break;
+  if(z == min)
+    return y;
+  return z;
+}
+
+//############################################################################
+bool file_exists(string file)
+{
+    ifstream in;
+    in.open(file.c_str(), ios::in);
+    if(in.is_open())
+    {
+        in.close();
+        return true;
+    }
+    return false;
+}
+
+//############################################################################
+bool directory_exists(string dir)
+{
+    if(chdir(dir.c_str()) == 0) // success!
+    {
+        chdir("../");
+        return true;
+    }
+    return false;
+}
+
+//############################################################################
+string time_as_string(double seconds)
+{
+    if(seconds >= 0)
+    {
+        char   buffer[256];
+        string time_string;
+        int    hh,
+               mm,
+               ss;
+        double sec;
+
+        hh  = (int)(seconds / 3600);
+        mm  = (int)((seconds - hh * 3600) / 60);
+        ss  = (int)(seconds - (hh * 3600 + mm * 60));
+        sec = seconds - (hh * 3600 + mm * 60 + ss);
+
+        sprintf(buffer, "%02d:%02d:%02d", hh, mm, ss);
+        time_string = buffer;
+        sprintf(buffer, "%lf", sec);
+        time_string += &(buffer[1]); // ignore the leading zero!
+        return time_string;
+    }
+    return string("??:??:??");
+}
+
+//############################################################################
+double random_01() // returns a double between 0 & 1.
+{
+    return ((double)(rand()) / (double)RAND_MAX);
+}
+
+//############################################################################
+double random_neg_to_pos_1() // returns a double between -1 & 1.
+{
+    return random_01() - random_01();
+}
+
+//############################################################################
+void txt_tag(ofstream& out)
+{
+    out << "# This file was generated by " LASERBOY_VERSION " !!!\n"
+           "#\n"
+           "# the free, multiplatform laser display application\n"
+           "# by James Lehman <james@akrobiz.com>\n"
+           "# Extra Stimulus Inc., Akron, Ohio USA\n"
+           "# http://laserboy.org/\n\n"
+
+           "version " LASERBOY_TXT_VERSION "\n"
+        << ENDL;
+    return;
+}
+
+//############################################################################
+bool get_dxf_pair(ifstream& in, int& group_code, string& entity_string)
+{
+    char line[256];
+    in >> group_code;
+    if(group_code != -1)
+    {
+        while(isspace(in.peek()))
+            in.get(); // eat the '\r''\n'
+
+        in.getline(line, 255);
+        entity_string = line;
+
+        int i = entity_string.size() - 1;
+        while(!isgraph(entity_string[i]))
+            i--;
+
+        entity_string = entity_string.substr(0, i + 1);
+    }
+    return (group_code != 0 && in.good());
+}
+
+//############################################################################
+bool get_dxf_pair(ifstream& in, int& group_code, char entity_string[256])
+{
+    in >> group_code;
+    if(group_code != -1)
+    {
+        while(isspace(in.peek()))
+            in.get(); // eat the '\r''\n'
+        in.getline(entity_string, 255);
+    }
+    return (group_code != 0 && in.good());
+}
+
+//############################################################################
+bool clear_to_alpha(ifstream& in, int& line_number)
+{
+    int next_char;
+    while(in.good())
+    {
+        next_char = in.peek();
+        if(!isalpha(next_char))
+        {
+            in.get(); // eat it!
+            if(next_char == '\n') // end of the line!
+            {
+                line_number++;
+            }
+            if(next_char == '#') // comment
+            {
+                in.ignore(99999, '\n');
+                line_number++;
+            }
+        }
+        else // next_char is alpha
+            break;
+    }
+    return in.good();
+}
+
+//############################################################################
+bool clear_to_digit(ifstream& in, int& line_number)
+{
+    int next_char;
+    while(in.good())
+    {
+        next_char = in.peek();
+        if(    !isdigit(next_char)
+            && next_char != '.'
+            && next_char != '-'
+            && next_char != '+'
+          )
+        {
+            in.get(); // eat it!
+            if(next_char == '\n') // end of the line!
+            {
+                line_number++;
+            }
+            if(next_char == '#') // comment
+            {
+                in.ignore(99999, '\n');
+                line_number++;
+            }
+        }
+        else // next_char is a digit or '.' or '-'
+            break;
+    }
+    return in.good();
+}
+
+//############################################################################
+bool clear_to_token(ifstream& in, int& next_char, int& line_number)
+{
+    while(in.good())
+    {
+        next_char = in.peek();
+        if(    !isalnum(next_char)
+            && next_char != '.'
+            && next_char != '-'
+            && next_char != '+'
+          )
+        {
+            in.get(); // eat it!
+            if(next_char == '\n') // end of the line!
+            {
+                line_number++;
+            }
+            if(next_char == '#') // comment
+            {
+                in.ignore(99999, '\n');
+                line_number++;
+            }
+        }
+        else // next_char is alpha or digit or '.' or '-'
+            break;
+    }
+    return in.good();
+}
+
+//############################################################################
+bool get_next_word(ifstream& in, string& word, int& line_number)
+{
+    int next_char;
+    //------------------------------------------------------------------------
+    while(in.good())
+    {
+        next_char = in.peek();
+        if(isspace(next_char))
+        {
+            in.get(); // eat it!
+            if(next_char == '\n') // end of the line!
+            {
+                line_number++;
+                return false;
+            }
+        }
+        else // it is not a white space character
+            break;
+    }
+    //------------------------------------------------------------------------
+    if(isalpha(next_char))
+    {
+        in >> word;
+        return true;
+    }
+    return false;
+}
+
+//############################################################################
+bool get_next_number(ifstream& in, double& number, int& line_number)
+{
+    int next_char;
+    //------------------------------------------------------------------------
+    while(in.good())
+    {
+        next_char = in.peek();
+        if(isspace(next_char))
+        {
+            in.get(); // eat it!
+            if(next_char == '\n') // end of the line!
+            {
+                line_number++;
+                return false;
+            }
+        }
+        else // it is not a white space character
+            break;
+    }
+    //------------------------------------------------------------------------
+    if(    isdigit(next_char)
+        || next_char == '+'
+        || next_char == '-'
+        || next_char == '.'
+      )
+    {
+        in >> number;
+        return true;
+    }
+    //------------------------------------------------------------------------
+    return false;
+}
+
+//############################################################################
+bool get_next_hex(ifstream& in, double& number, int& line_number)
+{
+    int next_char;
+    string token;
+    char** junk = NULL;
+    //------------------------------------------------------------------------
+    while(in.good())
+    {
+        next_char = in.peek();
+        if(isspace(next_char))
+        {
+            in.get(); // eat it!
+            if(next_char == '\n') // end of the line!
+            {
+                line_number++;
+                return false;
+            }
+        }
+        else // it is not a white space character
+            break;
+    }
+    //------------------------------------------------------------------------
+    if(    isxdigit(next_char)
+        || next_char == '+'
+        || next_char == '-'
+      )
+    {
+        in >> token;
+        if(token == "-1")
+            number = -1;
+        else
+            number = (int)(strtol(token.c_str(), junk, 16));
+        return true;
+    }
+    //------------------------------------------------------------------------
+    return false;
+}
+
+//############################################################################
+//////////////////////////////////////////////////////////////////////////////
+//############################################################################
