@@ -1,4 +1,4 @@
-//############################################################################
+﻿//############################################################################
 //
 // LaserBoy !!!
 //
@@ -38,10 +38,15 @@ int main(int argc, char *argv[])
       LaserBoy_SDL_GUI LaserBoy_App(1,1);
       LaserBoy_space space(&LaserBoy_App);
       LaserBoy_frame frame(&space);
-      space.from_dxf_file(argv[1]);
+
+      space.auto_minimize = !space.auto_minimize;
+      //space.auto_scale_real = !space.auto_scale_real;//scale dxf import
+      //space.maintain_real_origin = !space.maintain_real_origin; //maintain dxf origin
 
       //changing ild file format
       space.dumb_file_format = !space.dumb_file_format;
+
+      space.from_dxf_file(argv[1]);
       //if(space.dumb_file_format)
       //  space.TUI_clue = "ild 4,5";
       //else
@@ -49,20 +54,38 @@ int main(int argc, char *argv[])
       //
       space.current_frame().minimize(0); // get rid of useless segments
       space.current_frame().optimize(0); // interpolate points to correct projection
-      space.current_frame().quarter_turn(0, 3); // rotate CCW 90 degrees
-      // use the power of charmander to rotate over X Z plane
-      char mander; // it's a cool pokemon
+
+      //choose color palette
+      space.target_palette_index=8; //7=red scale, 8=green scale, 9=blue scale
+      space.selected_color_index=128; //from 0 to 255
+      space.current_frame().to_target_palette_by_index();
+
+
+
+
+
       //select all segments
       space.current_frame().egg = 0; // select first  vertex
       space.current_frame().spider = (space.current_frame().number_of_vertices() - 1); // select last vertex
-      space.rotation_step = 45.0 * one_degree; // rotate 45 degree
-      cout << "fulcrum is x: " << space.current_frame().p_space->fulcrum.x << " y: " << space.current_frame().p_space->fulcrum.y << " z: " << space.current_frame().p_space->fulcrum.z;
+      //move in +Z to allow more rotation
+      space.current_frame().move_selection(LaserBoy_3D_double(0, 0, LASERBOY_MAX_SHORT-1));
+
+      //rotate
+      space.rotation_step = 0.0 * one_degree; // rotate 45 degree
+      //cout << "fulcrum is x: " << space.current_frame().p_space->fulcrum.x << " y: " << space.current_frame().p_space->fulcrum.y << " z: " << space.current_frame().p_space->fulcrum.z;
       // fulcrum, which is something like the rotation central point
       // by default is 0 0 0
-      space.current_frame().p_space->fulcrum.x = -1.0;
+      space.current_frame().p_space->fulcrum.x = -32767;
       space.current_frame().p_space->fulcrum.y = 0.0;
-      space.current_frame().p_space->fulcrum.z = 0.0;
-      space.current_frame().rotate_selection(LaserBoy_3D_double(0, space.rotation_step, 0));
+      space.current_frame().p_space->fulcrum.z = 32768;
+      space.current_frame().rotate_selection_on_fulcrum(LaserBoy_3D_double(0, space.rotation_step, 0));
+
+      space.current_frame().quarter_turn(0, 3); // rotate CCW 90 degrees
+
+
+
+
+
       space.current_frame().save_as_ild(argv[2]);
 
 
